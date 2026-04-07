@@ -1,0 +1,430 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>PowerIQ</title>
+
+
+  <!-- Fonts & Chart.js -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    :root{
+      --bg:#050816; --card:#071126; --muted:#9fb0c9; --neon1:#60a5fa; --neon2:#8b5cf6; --accent:#00e0a1;
+      --glass: rgba(255,255,255,0.03);
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:'Inter',system-ui,Segoe UI,Roboto;
+      background: radial-gradient(1200px 500px at 10% 10%, rgba(99,102,241,0.08), transparent 10%),
+                  linear-gradient(180deg,var(--bg),#081229 80%);
+      color:#e6eef8;
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+      padding:28px;
+    }
+    .wrap{max-width:1200px;margin:0 auto}
+    header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}
+    .brand{display:flex;gap:12px;align-items:center}
+    .logo{
+      width:56px;height:56px;border-radius:12px;background:linear-gradient(135deg,var(--neon1),var(--neon2));
+      display:flex;align-items:center;justify-content:center;font-weight:700;color:#041029;box-shadow:0 6px 30px rgba(99,102,241,0.12)
+    }
+    h1{margin:0;font-size:20px}
+    .lead{color:var(--muted);font-size:13px;margin-top:3px}
+
+    .grid{display:grid;grid-template-columns:1fr 420px;gap:18px}
+    .card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); border-radius:12px;padding:16px;box-shadow:0 8px 40px rgba(2,6,23,0.6);border:1px solid rgba(255,255,255,0.03)}
+    .row{display:flex;gap:8px;align-items:center}
+    .btn{background:transparent;border:1px solid rgba(255,255,255,0.06);padding:8px 12px;border-radius:8px;color:#e6eef8;cursor:pointer;font-weight:600}
+    .btn.ghost{background:transparent}
+    .btn.primary{background:linear-gradient(90deg,var(--neon1),var(--neon2));border:none;color:#041029}
+    .small{font-size:13px;padding:6px 10px;border-radius:8px}
+
+    .appliance-list{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:12px}
+    .appliance{background:var(--glass);padding:10px;border-radius:10px;display:flex;justify-content:space-between;align-items:center}
+    .appliance strong{display:block}
+    .meter{font-weight:700;font-size:16px;color:var(--neon1)}
+
+    canvas{width:100%!important;height:240px!important;border-radius:8px}
+
+    .metrics{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+    .metric{background:transparent;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.03);min-width:110px;text-align:center}
+    .metric .value{font-weight:700;font-size:18px}
+
+    #aiSuggestions{margin-top:12px}
+    .alert{background:linear-gradient(90deg, rgba(96,165,250,0.06), rgba(139,92,246,0.04));border-radius:8px;padding:10px;margin:8px 0;color:var(--muted);font-size:13px}
+
+    #alerts{margin-top:10px;color:var(--muted);font-size:13px}
+    footer{margin-top:18px;color:var(--muted);font-size:12px;text-align:center}
+    @media (max-width:980px){ .grid{grid-template-columns:1fr} }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="brand">
+        <div class="logo">IQ</div>
+        <div>
+          <h1>PowerIQ — Digitizing Electricity</h1>
+          <div class="lead">Click <strong>Simulate</strong> to generate readings and <strong>Get Savings Tips</strong> to ask the server for AI insights.</div>
+        </div>
+      </div>
+
+      <div class="row">
+        <button id="simulate" class="btn primary">Simulate</button>
+        <button id="getTips" class="btn small">Get Savings Tips</button>
+        <button id="exportCSV" class="btn small ghost">Export CSV</button>
+      </div>
+    </header>
+
+    <main class="grid">
+      <!-- Left: chart + appliances -->
+      <section>
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <h2 style="margin:0 0 6px">Smart Distribution Board</h2>
+              <div style="color:var(--muted);font-size:13px">AC, Fridge, Heater, Lights, Fan</div>
+            </div>
+            <div class="row">
+              <div style="font-size:13px;color:var(--muted)">Price / kWh</div>
+              <div style="width:70px;margin-left:8px"><input id="pricePerKwh" type="number" value="12" style="width:100%;background:transparent;border:none;color:#e6eef8;text-align:right" /></div>
+            </div>
+          </div>
+
+          <div style="margin-top:12px">
+            <canvas id="applianceChart"></canvas>
+          </div>
+
+          <div class="appliance-list" id="applianceList" style="margin-top:12px"></div>
+
+          <div class="metrics" id="metrics">
+            <div class="metric">
+              <div style="color:var(--muted);font-size:12px">Total (W)</div>
+              <div class="value" id="totalW">0</div>
+            </div>
+            <div class="metric">
+              <div style="color:var(--muted);font-size:12px">Est kWh/day</div>
+              <div class="value" id="kwhDay">0</div>
+            </div>
+            <div class="metric">
+              <div style="color:var(--muted);font-size:12px">Est ₹/day</div>
+              <div class="value" id="costDay">0</div>
+            </div>
+          </div>
+
+          <div id="alerts"></div>
+        </div>
+      </section>
+
+      <!-- Right: AI insights -->
+      <aside>
+        <div class="card">
+          <h3 style="margin-top:0">AI Insights</h3>
+          <div id="aiSuggestions">
+            <div class="alert">Click <strong>Get Savings Tips</strong> to fetch AI-generated suggestions from the server.</div>
+          </div>
+
+          <div style="margin-top:10px">
+            <h4 style="margin:8px 0 6px">Recent snapshots</h4>
+            <div id="recentList" style="color:var(--muted);font-size:13px">No data yet.</div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:12px">
+          <h4 style="margin:0 0 8px">Quick Controls</h4>
+          <div style="display:flex;gap:8px;flex-direction:column">
+            <button id="clearData" class="btn ghost small">Clear chart</button>
+            <button id="refreshIns" class="btn small">Refresh Insights</button>
+          </div>
+        </div>
+      </aside>
+    </main>
+
+    <footer>Made with ♥ — PowerIQ</footer>
+  </div>
+
+  <script>
+    /* ======= Configuration ======= */
+    const BACKEND_BASE = window.location.origin; // change to 'http://localhost:3000' if needed
+    const PRICE_INPUT = document.getElementById('pricePerKwh');
+
+    /* ======= Sim data model ======= */
+    const APPLIANCES = [
+      { id: 'AC', label: 'AC', base: 1200 },
+      { id: 'Fridge', label: 'Fridge', base: 150 },
+      { id: 'Heater', label: 'Heater', base: 1000 },
+      { id: 'Lights', label: 'Lights', base: 60 },
+      { id: 'Fan', label: 'Fan', base: 60 }
+    ];
+
+    // state
+    const state = {
+      labels: [], // time labels
+      dataSeries: {
+        AC: [], Fridge: [], Heater: [], Lights: [], Fan: []
+      },
+      maxPoints: 48 // points to keep on chart
+    };
+
+    /* ======= Build UI appliance list ======= */
+    const applianceListEl = document.getElementById('applianceList');
+    APPLIANCES.forEach(a=>{
+      const el = document.createElement('div'); el.className = 'appliance';
+      el.innerHTML = `<div><strong>${a.label}</strong><div style="color:var(--muted);font-size:12px">Base ${a.base} W</div></div><div class="meter" id="meter-${a.id}">${a.base}</div>`;
+      applianceListEl.appendChild(el);
+    });
+
+    /* ======= Chart.js setup ======= */
+    const ctx = document.getElementById('applianceChart').getContext('2d');
+    const colorFor = (i)=> [getComputedStyle(document.documentElement).getPropertyValue('--neon1').trim() || '#60a5fa','var(--neon2)','#ff7b7b','#ffd166','#00e0a1'][i%5];
+    const applianceChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: state.labels,
+        datasets: APPLIANCES.map((a, idx)=>({
+          label: a.label,
+          data: state.dataSeries[a.id],
+          tension: 0.25,
+          borderWidth: 2,
+          pointRadius: 0,
+          borderColor: colorFor(idx),
+          backgroundColor: 'transparent',
+          spanGaps: true
+        }))
+      },
+      options: {
+        animation:false,
+        responsive:true,
+        maintainAspectRatio:false,
+        plugins: { legend:{ display:true, labels:{color:'#cfe6ff'} } },
+        scales: {
+          x: { grid: {display:false}, ticks:{color: '#9fb0c9', maxRotation:0} },
+          y: { grid: {color: 'rgba(255,255,255,0.03)'}, ticks:{color:'#9fb0c9'} }
+        }
+      }
+    });
+
+    /* ======= Helpers: update metrics & render ======= */
+    function addPoint(tsLabel, values){
+      // push label
+      state.labels.push(tsLabel);
+      if(state.labels.length>state.maxPoints) state.labels.shift();
+      // push values
+      APPLIANCES.forEach(a=>{
+        const val = Math.round(values[a.id]);
+        state.dataSeries[a.id].push(val);
+        if(state.dataSeries[a.id].length>state.maxPoints) state.dataSeries[a.id].shift();
+        const meter = document.getElementById('meter-' + a.id);
+        if(meter) meter.textContent = val;
+      });
+      applianceChart.update();
+      updateMetrics();
+    }
+
+    function updateMetrics(){
+      // compute latest total W
+      const latest = APPLIANCES.reduce((s,a)=> s + (state.dataSeries[a.id].length ? state.dataSeries[a.id][state.dataSeries[a.id].length-1] : a.base), 0);
+      document.getElementById('totalW').textContent = latest + ' W';
+      // estimate kWh/day assuming reading per 30 minutes average -> convert accordingly
+      // Simpler: assume average *24/1000 to convert W -> kWh/day (approx)
+      const avgW = APPLIANCES.reduce((s,a)=> s + (average(state.dataSeries[a.id]) || a.base), 0) / APPLIANCES.length;
+      const kwhDay = ((avgW) * 24) / 1000;
+      document.getElementById('kwhDay').textContent = kwhDay.toFixed(2);
+      const price = Number(PRICE_INPUT.value || 12);
+      document.getElementById('costDay').textContent = '₹' + (kwhDay * price).toFixed(2);
+      renderRecentSnapshotsUI();
+    }
+
+    function average(arr){
+      if(!arr || arr.length===0) return 0;
+      return arr.reduce((s,x)=>s+Number(x||0),0)/arr.length;
+    }
+
+    /* ======= Simulation logic ======= */
+    function simulateStep(){
+      // create slightly varying values around base
+      const values = {};
+      APPLIANCES.forEach(a=>{
+        const last = state.dataSeries[a.id].length ? state.dataSeries[a.id][state.dataSeries[a.id].length-1] : a.base;
+        // random walk
+        const drift = (Math.random()-0.45) * (a.base * 0.08);
+        let newVal = Math.max(0, last + drift);
+        // introduce occasional spikes
+        if(Math.random() < 0.03) newVal += a.base * (0.5 + Math.random());
+        values[a.id] = Math.round(newVal);
+      });
+      const tsLabel = new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+      addPoint(tsLabel, values);
+      // after adding, send snapshot to server & fetch insights (debounced by small delay)
+      setTimeout(()=> sendSnapshotAndGetInsights(collectSnapshot()), 300);
+    }
+
+    document.getElementById('simulate').addEventListener('click', ()=> {
+      // run a short simulation burst (6 steps) to populate chart quickly
+      for(let i=0;i<6;i++){
+        setTimeout(simulateStep, i * 160);
+      }
+    });
+
+    document.getElementById('clearData').addEventListener('click', ()=>{
+      state.labels = [];
+      APPLIANCES.forEach(a=>state.dataSeries[a.id] = []);
+      applianceChart.data.labels = state.labels;
+      applianceChart.data.datasets.forEach(ds => ds.data = []);
+      applianceChart.update();
+      updateMetrics();
+    });
+
+    /* ======= Export CSV ======= */
+    document.getElementById('exportCSV').addEventListener('click', ()=>{
+      // build CSV from state
+      const rows = [];
+      const header = ['timestamp'].concat(APPLIANCES.map(a=>a.id));
+      rows.push(header.join(','));
+      for(let i=0;i<state.labels.length;i++){
+        const row = [state.labels[i]];
+        APPLIANCES.forEach(a => row.push(state.dataSeries[a.id][i] ?? ''));
+        rows.push(row.join(','));
+      }
+      const csv = rows.join('\n');
+      const blob = new Blob([csv], {type: 'text/csv'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = 'poweriq_snapshot.csv'; a.click(); URL.revokeObjectURL(url);
+      showAlert('Exported CSV', 'Your CSV export should have downloaded.');
+    });
+
+    /* ======= Alerts UI helper ======= */
+    function showAlert(title, msg){
+      const el = document.getElementById('alerts');
+      el.innerHTML = `<div style="padding:10px;border-radius:8px;background:linear-gradient(90deg, rgba(0,224,161,0.04), rgba(139,92,246,0.03));border:1px solid rgba(255,255,255,0.02);color:var(--muted)">${title ? '<strong>'+title+'</strong><br/>' : ''}${msg}</div>`;
+      setTimeout(()=>{ if(el) el.innerHTML = '' }, 7000);
+    }
+
+    /* ======= Recent snapshots UI (local) ======= */
+    function renderRecentSnapshotsUI(){
+      const el = document.getElementById('recentList');
+      if(state.labels.length===0){el.textContent = 'No data yet.'; return;}
+      const pieces = [];
+      const latestIdx = state.labels.length - 1;
+      const t = state.labels[latestIdx];
+      const latest = APPLIANCES.map(a => `${a.label}: ${state.dataSeries[a.id][latestIdx] ?? a.base}W`).join(' • ');
+      el.textContent = `${t} — ${latest}`;
+    }
+
+    /* ======= Server / AI integration ======= */
+    // collectSnapshot returns server-friendly object
+    function collectSnapshot(){
+      const latestIdx = Math.max(0, state.labels.length - 1);
+      const snap = { ts: new Date().toISOString() };
+      APPLIANCES.forEach(a=>{
+        snap[a.id] = state.dataSeries[a.id].length ? state.dataSeries[a.id][latestIdx] : a.base;
+      });
+      // map keys to exactly the server's expected shape:
+      return {
+        ts: snap.ts,
+        AC: snap.AC,
+        Fridge: snap.Fridge,
+        Heater: snap.Heater,
+        Lights: snap.Lights,
+        Fan: snap.Fan
+      };
+    }
+
+    // POST to /api/data/save and then GET /api/insights
+    async function sendSnapshotAndGetInsights(snapshot){
+      try{
+        await fetch(BACKEND_BASE + '/api/data/save', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify(snapshot)
+        });
+      }catch(e){
+        console.warn('Save failed:', e);
+      }
+      try{
+        const r = await fetch(BACKEND_BASE + '/api/insights');
+        if(!r.ok) throw new Error('insights fetch failed');
+        const j = await r.json();
+        renderServerAISuggestions(j);
+      }catch(err){
+        console.warn('Insights fetch error:', err);
+      }
+    }
+
+    // Render AI suggestions returned by server
+    function renderServerAISuggestions(payload){
+      const aiBox = document.getElementById('aiSuggestions');
+      aiBox.innerHTML = '';
+      if(!payload){
+        aiBox.innerHTML = '<div class="alert">No insights returned.</div>'; return;
+      }
+      // If server returned structured insights
+      if(payload.insights){
+        const s = payload.insights;
+        if(s.summary) aiBox.appendChild(createBlock('Summary', s.summary));
+        if(Array.isArray(s.suggestions)){
+          aiBox.appendChild(createBlock('Suggestions', s.suggestions.map(x=>`- ${x}`).join('<br/>')));
+        }
+        if(Array.isArray(s.diagnostics) && s.diagnostics.length){
+          aiBox.appendChild(createBlock('Diagnostics', s.diagnostics.map(d=>`${d.appliance}: ${d.issue}`).join('<br/>')));
+        }
+        return;
+      }
+      // if raw text fallback
+      if(payload.raw){
+        aiBox.appendChild(createBlock('AI output', payload.raw));
+        return;
+      }
+      aiBox.appendChild(createBlock('Info', JSON.stringify(payload)));
+    }
+
+    function createBlock(title, html){
+      const div = document.createElement('div');
+      div.style.marginTop = '8px';
+      div.innerHTML = `<strong style="display:block;margin-bottom:6px">${title}</strong><div class="alert" style="margin:0;padding:10px">${html}</div>`;
+      return div;
+    }
+
+    // Buttons that call insights explicitly
+    document.getElementById('getTips').addEventListener('click', async () => {
+      try {
+        const snap = collectSnapshot();
+        const res = await fetch(BACKEND_BASE + '/api/insights');
+        if (!res.ok) throw new Error('Insights fetch failed');
+        const data = await res.json();
+        renderServerAISuggestions(data);
+        showAlert('AI Insights Updated', 'Groq successfully analyzed the latest energy data.');
+      } catch (err) {
+        console.error('Insights error:', err);
+        showAlert('AI Insights Failed', 'Unable to get savings tips. Check your server connection.');
+    } 
+  });
+
+    document.getElementById('refreshIns').addEventListener('click', ()=> {
+      fetch(BACKEND_BASE + '/api/insights').then(r=>r.json()).then(renderServerAISuggestions).catch(e=>console.warn(e));
+    });
+
+    /* ======= Small boot animation & seed data ======= */
+    // Seed chart with 6 initial points by simulating quickly
+    (function seed(){
+      for(let i=0;i<6;i++){
+        setTimeout(simulateStep, i*130);
+      }
+    })();
+
+    // Small entrance effect for lines (optional)
+    function entranceAnimate(){
+      // quick pulse: not complicated— ChartJS correctly draws lines as data arrives.
+      // Keep minimal: no heavy animation required here.
+    }
+
+    entranceAnimate();
+
+  </script>
+</body>
+</html>
